@@ -31,8 +31,10 @@ def get_retriever(args, tokenizer):
     elif args.retrieval_type == "dense":
         from retriever_interface.dense_retriever import DenseRetriever
         encoder = SentenceTransformer(args.encoder_name).to("cpu" if args.device_id == -1 else f"cuda:{args.device_id}")
-        if args.corpus_size.lower().strip() == "none":
-            args.corpus_size = None
+        assert args.corpus_size.startswith("dense"), f"Wrong corpus_size pattern {args.corpus_size}"
+        corpus_size = args.corpus_size.split("-")
+        assert len(corpus_size) < 2, f"Wrong corpus_size pattern length {args.corpus_size}"
+        corpus_size = None if len(corpus_size) < 2 else corpus_size[1]
         return DenseRetriever(
             tokenizer=tokenizer,
             encoder=encoder,

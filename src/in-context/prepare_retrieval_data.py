@@ -38,8 +38,8 @@ def main(args):
             dataset = f.read()
 
     encodings = tokenizer(dataset, add_special_tokens=False, return_tensors="pt")
-    dataset_len = encodings.input_ids.size(1)
-    logger.info("Dataset length:", dataset_len)
+    dataset_len = encodings.input_ids.shape[1]
+    logger.info(f"Dataset length: {dataset_len}")
 
     logger.info(f"Creating retriever of type {args.retrieval_type}...")
     retriever = get_retriever(args, tokenizer)

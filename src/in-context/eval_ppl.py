@@ -1,6 +1,7 @@
 import os
-import argparse
 import json
+import logging
+import argparse
 
 import numpy as np
 import torch
@@ -9,6 +10,13 @@ from tqdm import tqdm
 from datasets import load_dataset
 
 from utils import dump_args, load_model_and_tokenizer
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(
+    format="%(asctime)s - %(levelname)s - %(name)s -   %(message)s",
+    datefmt="%m/%d/%Y %H:%M:%S",
+    level=logging.INFO
+)
 
 
 def get_retrieved_doc_ids(retrieved_example, tokenizer):
@@ -32,11 +40,12 @@ def eval_dataset(
 ):
     encodings = tokenizer(dataset, add_special_tokens=False, return_tensors="pt")
     
-    print("Max model input length:", model_max_length)
-    print("Max context length:", max_length)
+    logger.info(f"Max model input length: {model_max_length}")
+    logger.info(f"Max context length: {max_length}")
+    logger.info(f"Stride:  {stride}")
     # Number of tokens in dataset
     dataset_len = encodings.input_ids.size(1)
-    print("Dataset length:", dataset_len)
+    logger.info(f"Dataset length: {dataset_len}")
 
     if normalization_level == "word":
         counter = dataset.count(" ")
@@ -45,7 +54,7 @@ def eval_dataset(
     else:
         raise ValueError(f"Unknown normalization_level: '{normalization_level}'")
 
-    print("Normalization factor (num tokens/words..):", counter)
+    logger.info(f"Normalization factor (num tokens/words..): {counter}")
 
     nlls = []
     prev_end_loc = 0
@@ -101,7 +110,7 @@ def eval_dataset(
     assert retrieval_dataset is None or len(retrieval_dataset) == idx
 
     ppl = torch.exp(torch.stack(nlls).sum() / counter).item()
-    print("Perplexity:", ppl)
+    logger.info(f"Perplexity: {ppl}")
     ppl_to_assert = np.exp(sum([sum(x) for x in all_token_ppls]) / counter)
     assert np.abs(ppl - ppl_to_assert) < 1e-3, f"{ppl:.3f}, {ppl_to_assert:.3f}"
 
