@@ -4,8 +4,7 @@ import json
 import logging
 import argparse
 from tqdm import tqdm
-from datasets import load_dataset
-from utils import dump_args, load_model_and_tokenizer
+from utils import dump_args, load_model_and_tokenizer, load_data
 from retriever_interface.retriever_factory import add_retriever_args, get_retriever
 
 logger = logging.getLogger(__name__)
@@ -30,12 +29,7 @@ def main(args):
     )
 
     logger.info("Loading dataset...")
-    if args.load_from == "hf":
-        dataset = load_dataset(args.dataset_path, args.dataset_name, split=args.dataset_split)
-        dataset = "".join([x["text"] if x["text"] else " \n" for x in dataset])
-    else:
-        with open(args.dataset_path, "r") as f:
-            dataset = f.read()
+    dataset = load_data(args.load_from, args.dataset_path, args.dataset_name, args.dataset_split)
 
     encodings = tokenizer(dataset, add_special_tokens=False, return_tensors="pt")
     dataset_len = encodings.input_ids.shape[1]
@@ -66,7 +60,7 @@ def main(args):
             break
 
     for i in range(0, len(data), args.batch_size):
-        if i > 0:
+        if i % 1000 == 0:
             logger.info(f"Finished processing {i}/{len(data)} strides")
         retriever.retrieve(encodings.input_ids, data[i : i + args.batch_size], k=args.topk)
 

@@ -2,7 +2,7 @@ PROJECT_DIR=/disk3/xy/PROJECT/wsy/benchmark-ralm
 DEVICE=0
 RETRIEVER=exact # none, exact, dense-100k, dense-500k, dense-1m, dense-2m, dense-10m
 MASK_ID=-100
-MODEL=llama-7b
+MODEL=opt-1.3b
 MODEL_PATH=/disk3/xy/LM/$MODEL
 OUTPUT_DIR=$PROJECT_DIR/outputs/$MODEL-$RETRIEVER
 RETRIEVAL_DIR=$PROJECT_DIR/retrievals
@@ -40,7 +40,6 @@ if [[ $RETRIEVER == "exact" ]]; then
 elif [[ $RETRIEVER == dense* ]]; then
   ENCODER=/disk3/xy/LM/bert-base-uncased
   RETRIEVER_DIR=$RETRIEVER_LIB/metadata/wikitext-103-all/
-
   # Use a dense retriever to search
   CUDA_VISIBLE_DEVICES=$DEVICE CUDA_LAUNCH_BLOCKING=1 \
     python $PROJECT_DIR/src/in-context/prepare_retrieval_data.py \
@@ -75,7 +74,7 @@ if [[ $RETRIEVER == "none" ]]; then
       --model_name $MODEL_PATH \
       --max_length 1024 \
       --stride 4 \
-      --mask_id $MASK_ID \
+      --mask_id $MASK_ID
 else
   CUDA_VISIBLE_DEVICES=$DEVICE CUDA_LAUNCH_BLOCKING=1 \
     python $PROJECT_DIR/src/in-context/eval_ppl.py \

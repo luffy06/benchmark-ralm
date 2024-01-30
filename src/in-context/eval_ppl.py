@@ -7,9 +7,7 @@ import numpy as np
 import torch
 from torch.nn import CrossEntropyLoss
 from tqdm import tqdm
-from datasets import load_dataset
-
-from utils import dump_args, load_model_and_tokenizer
+from utils import dump_args, load_model_and_tokenizer, load_data
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -44,9 +42,11 @@ def eval_dataset(
     logger.info(f"Max context length: {max_length}")
     logger.info(f"Stride:  {stride}")
     # Number of tokens in dataset
-    dataset_len = encodings.input_ids.size(1)
+    dataset_len = encodings.input_ids.shape[1]
     logger.info(f"Dataset length: {dataset_len}")
-
+    logger.info(f"Number of queries: {dataset_len // stride}")
+    if retrieval_dataset != None:
+        logger.info(f"Number of retrievals: {len(retrieval_dataset)}")
     if normalization_level == "word":
         counter = dataset.count(" ")
     elif normalization_level == "token":
@@ -67,12 +67,13 @@ def eval_dataset(
         trg_len = end_loc - prev_end_loc
         input_ids = encodings.input_ids[:, begin_loc:end_loc].to(device)
 
-        if retrieval_dataset is not None and len(retrieval_dataset[idx]["retrievals"]) > 0:
-            retrieved_example = retrieval_dataset[idx]
-            retrieved_doc_ids = get_retrieved_doc_ids(retrieved_example, tokenizer).to(device)
-            input_ids = torch.cat((retrieved_doc_ids, input_ids), 1).to(device)
-            input_ids = input_ids[:, -model_max_length:]
-            idx = idx + 1
+        if retrieval_dataset is not None:
+            assert idx < len(retrieval_dataset), f"Illegal idx {idx} of {len(retrieval_dataset)}"
+            if len(retrieval_dataset[idx]["retrievals"]) > 0:
+                retrieved_example = retrieval_dataset[idx]
+                retrieved_doc_ids = get_retrieved_doc_ids(retrieved_example, tokenizer).to(device)
+                input_ids = torch.cat((retrieved_doc_ids, input_ids), 1).to(device)
+                input_ids = input_ids[:, -model_max_length:]
             
         target_ids = input_ids.clone()
         target_ids[:, :-trg_len] = mask_id
@@ -135,12 +136,7 @@ def main(args):
     if max_length is None or max_length > model_max_length:
         max_length = model_max_length
 
-    if args.load_from == "hf":
-        dataset = load_dataset(args.dataset_path, args.dataset_name, split=args.dataset_split)
-        dataset = "".join([x["text"] if x["text"] else " \n" for x in dataset])
-    else:
-        with open(args.dataset_path, "r") as f:
-            dataset = f.read()
+    dataset = load_data(args.load_from, args.dataset_path, args.dataset_name, args.dataset_split)
 
     retrieval_dataset = None
     if args.retrieved_file is not None:

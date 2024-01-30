@@ -3,6 +3,7 @@ import torch
 import logging
 from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer, LlamaTokenizer
 from huggingface_hub import login
+from datasets import load_dataset
 logger = logging.getLogger(__name__)
 logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(name)s -   %(message)s",
@@ -59,3 +60,12 @@ def load_model_and_tokenizer(model_name, model_parallelism=False, cache_dir=None
         model = torch.nn.DataParallel(model)
 
     return model, tokenizer, config, device
+
+def load_data(load_from, dataset_path, dataset_name, dataset_split):
+    if load_from == "hf":
+        dataset = load_dataset(dataset_path, dataset_name, split=dataset_split)
+        dataset = "".join([x["text"] if x["text"] else " \n" for x in dataset])
+    else:
+        with open(dataset_path, "r") as f:
+            dataset = f.read()
+    return dataset
