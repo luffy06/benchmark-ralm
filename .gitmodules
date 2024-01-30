@@ -1,0 +1,3 @@
+[submodule "src/retriever-lib"]
+	path = src/retriever-lib
+	url = https://github.com/luffy06/retriever-lib
