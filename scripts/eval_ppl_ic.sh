@@ -1,8 +1,8 @@
 PROJECT_DIR=/disk3/xy/PROJECT/wsy/benchmark-ralm
-DEVICE=0
-RETRIEVER=exact # none, exact, dense-100k, dense-500k, dense-1m, dense-2m, dense-10m
+DEVICE=2
+RETRIEVER=none # none, exact, dense-100k, dense-500k, dense-1m, dense-2m, dense-10m
 MASK_ID=-100
-MODEL=opt-1.3b
+MODEL=llama-13b
 MODEL_PATH=/disk3/xy/LM/$MODEL
 OUTPUT_DIR=$PROJECT_DIR/outputs/$MODEL-$RETRIEVER
 RETRIEVAL_DIR=$PROJECT_DIR/retrievals
@@ -59,9 +59,6 @@ elif [[ $RETRIEVER == dense* ]]; then
       --corpus_size $RETRIEVER \
       --nprobe 512 \
       --device_id 0
-else
-  echo "Wrong retriever type ["$RETRIEVER"]"
-  exit
 fi
 
 if [[ $RETRIEVER == "none" ]]; then
