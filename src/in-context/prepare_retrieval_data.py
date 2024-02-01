@@ -37,6 +37,8 @@ def main(args):
 
     logger.info(f"Creating retriever of type {args.retrieval_type}...")
     retriever = get_retriever(args, tokenizer)
+    if args.retrieval_type == "openai":
+        retriever.system_prompt = retriever.system_prompt.replace("%d", f"{args.stride}")
 
     # Ref: https://huggingface.co/docs/transformers/perplexity
     data = []

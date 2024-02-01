@@ -12,6 +12,9 @@ def add_retriever_args(parser, retrieval_type):
         parser.add_argument("--nprobe", type=int, default=512)
         parser.add_argument("--device_id", type=int, default=-1)
         parser.add_argument("--index_path", type=str, default=None)
+    elif retrieval_type == "openai":
+        parser.add_argument("--system_prompt", type=str, default="")
+        parser.add_argument("--model_name", type=str, default="gpt-4")
     else:
         raise ValueError
 
@@ -43,5 +46,12 @@ def get_retriever(args, tokenizer):
             corpus_size=args.corpus_size,
             device_id=args.device_id,
             index_path=args.index_path,
+        )
+    elif args.retrieval_type == "openai":
+        from retriever_interface.openai_retriever import OpenAIRetriever
+        return OpenAIRetriever(
+            tokenizer=tokenizer,
+            system_prompt=args.system_prompt,
+            model_name=args.model_name,
         )
     raise ValueError
