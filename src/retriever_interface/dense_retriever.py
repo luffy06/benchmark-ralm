@@ -2,7 +2,7 @@ import sys
 import numpy as np
 from glob import glob
 from retriever_interface.base_retriever import BaseRetriever
-sys.path.append('../retriever-lib/src')
+sys.path.append('retriever-lib/src')
 from faisslib.retriever import Retriever
 
 class DenseRetriever(BaseRetriever):

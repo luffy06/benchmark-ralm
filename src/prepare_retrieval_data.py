@@ -14,12 +14,6 @@ logging.basicConfig(
     level=logging.INFO
 )
 
-RETRIEVAL_TYPES = [
-    "dense",
-    "sparse",
-    "exact",
-]
-
 def main(args):
     dump_args(args, output_file=args.output_file.replace(".json", ".args.txt"))
 
@@ -37,8 +31,6 @@ def main(args):
 
     logger.info(f"Creating retriever of type {args.retrieval_type}...")
     retriever = get_retriever(args, tokenizer)
-    if args.retrieval_type == "openai":
-        retriever.system_prompt = retriever.system_prompt.replace("%d", f"{args.stride}")
 
     # Ref: https://huggingface.co/docs/transformers/perplexity
     data = []
@@ -79,10 +71,7 @@ if __name__ == '__main__':
     assert sys.argv[1] == "--retrieval_type"
     retrieval_type = sys.argv[2]
 
-    assert retrieval_type in RETRIEVAL_TYPES
-
     parser = argparse.ArgumentParser()
-
     parser.add_argument("--output_file", required=True, type=str)
 
     # Dataset params
@@ -101,7 +90,7 @@ if __name__ == '__main__':
     parser.add_argument("--auth_token", type=str, default=None)
 
     # Retrieval params
-    parser.add_argument("--retrieval_type", required=True, choices=RETRIEVAL_TYPES)
+    parser.add_argument("--retrieval_type", required=True)
     parser.add_argument("--batch_size", type=int, default=1024)
     parser.add_argument("--topk", type=int, default=1)
     add_retriever_args(parser, retrieval_type)

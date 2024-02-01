@@ -13,7 +13,10 @@ def add_retriever_args(parser, retrieval_type):
         parser.add_argument("--device_id", type=int, default=-1)
         parser.add_argument("--index_path", type=str, default=None)
     elif retrieval_type == "openai":
-        parser.add_argument("--system_prompt", type=str, default="")
+        parser.add_argument("--system_prompt", type=str, default="", nargs="+")
+        parser.add_argument("--model_name", type=str, default="gpt-4")
+    elif retrieval_type == "llm":
+        parser.add_argument("--system_prompt", type=str, default="", nargs="+")
         parser.add_argument("--model_name", type=str, default="gpt-4")
     else:
         raise ValueError
@@ -49,9 +52,11 @@ def get_retriever(args, tokenizer):
         )
     elif args.retrieval_type == "openai":
         from retriever_interface.openai_retriever import OpenAIRetriever
+        system_prompt = " ".join(args.system_prompt)
+        system_prompt = system_prompt.replace("%d", f"{args.stride}")
         return OpenAIRetriever(
             tokenizer=tokenizer,
-            system_prompt=args.system_prompt,
+            system_prompt=system_prompt,
             model_name=args.model_name,
         )
     raise ValueError
