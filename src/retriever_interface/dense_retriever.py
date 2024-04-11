@@ -3,11 +3,11 @@ import sys
 import torch
 import numpy as np
 from glob import glob
+from sentence_transformers import SentenceTransformer
 from retriever_interface.base_retriever import BaseRetriever
-sys.path.append('lib/retriever-lib/src')
+sys.path.append('/root/autodl-tmp/wsy/benchmark-ralm/lib/retriever-lib/src')
 from faisslib.retriever import FaissRetriever
-from SentenceTransformer import SentenceTransformer
-from models.refusion_layer import ReFusionLayer, ReFusionLinear, RetrievalLinear
+from models.refusion_layers import ReFusionLayer, ReFusionLinear, RetrievalLinear
 
 COMMON_LAYERS_PATTERN = ["layers", "h", "block", "blocks"]
 
@@ -15,13 +15,16 @@ class DenseRetriever(BaseRetriever):
     def __init__(self, args):
         super(DenseRetriever, self).__init__(args)
         self.retriever = FaissRetriever(
-            args.retriever_device, 
             args.retriever_path, 
-            args.topk, 
             args.nprobe, 
+            args.topk, 
+            args.retriever_device, 
             args.index_path
         )
 
+    def save_in_cache(self, neighbors):
+        self.retriever.save_in_cache(neighbors)
+    
     def retrieve(self, query_texts):
         query_embs = self.encoder.encode(query_texts, show_progress_bar=False)
         results = self.retriever.search(query_embs)
@@ -72,7 +75,7 @@ class DenseRetriever(BaseRetriever):
             is_using_layer_indexes = getattr(config, "layers_to_transform", None) is not None
             layer_indexing_pattern = getattr(config, "layers_pattern", None)
 
-            if target_module_found:
+            if target_module_found and layer_indexing_pattern != None:
                 layers_pattern = COMMON_LAYERS_PATTERN if layer_indexing_pattern is None else layer_indexing_pattern
                 layers_pattern = [layers_pattern] if isinstance(layers_pattern, str) else layers_pattern
 

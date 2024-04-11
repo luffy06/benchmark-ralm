@@ -83,11 +83,11 @@ if is_sagemaker_mp_enabled():
 
     IS_SAGEMAKER_MP_POST_1_10 = version.parse(SMP_VERSION) >= version.parse("1.10")
 
-    from .trainer_pt_utils import smp_forward_backward, smp_forward_only, smp_gather, smp_nested_concat
+    from transformers.trainer_pt_utils import smp_forward_backward, smp_forward_only, smp_gather, smp_nested_concat
 else:
     IS_SAGEMAKER_MP_POST_1_10 = False
 
-
+logger = logging.getLogger(__name__)
 
 class Trainer(transformers.Trainer):
     # Inherit from transformers.Trainer (version 4.40.0)

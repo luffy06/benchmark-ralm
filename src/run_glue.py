@@ -26,7 +26,8 @@ from data.processors import (
     compute_metrics_mapping
 )
 from models.roberta_prompt import RobertaForPromptFinetuning
-from retriever_interface.base_retriever import AutoRetriever
+from models.rag_model import ReFusionModel
+from retriever_interface.base_retriever import load_retriever
 from util.trainer import Trainer
 from transformers.trainer_utils import set_seed
 
@@ -160,7 +161,7 @@ def main():
     if retriever_args.retriever_type is not None:
         logger.info(f"Enable RAG, retriever type {retriever_args.retriever_type}, fusion mode {retriever_args.fusion_mode}")
         logger.info("Retrieval parameters %s", retriever_args)
-        retriever = AutoRetriever.from_pretrained(args=retriever_args)
+        retriever = load_retriever(args=retriever_args)
     else:
         retriever = None
 
@@ -210,7 +211,7 @@ def main():
         if retriever_args.fusion_mode == "concat":
             pass
         elif retriever_args.fusion_mode == "refusion":
-            model = retriever.replace_modules(model, retriever_args)
+            model = ReFusionModel(model, retriever, retriever_args)
         elif retriever_args.fusion_mode == "cross-attn":
             pass
 
@@ -245,10 +246,11 @@ def main():
 
     # Training
     if training_args.do_train:
-        logger.info("  " + "***** Training *****")
         if retriever_args.retriever_type != None:
+            logger.info("  " + "***** Bilevel Training *****")
             train_result = trainer.bilevel_train()
         else:
+            logger.info("  " + "***** Training *****")
             train_result = trainer.train()
         metrics = train_result.metrics
         trainer.log_metrics("train", metrics)

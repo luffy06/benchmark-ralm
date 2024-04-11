@@ -326,7 +326,7 @@ class GLUEDataset(torch.utils.data.Dataset):
                     input_text_list = input_example_to_tuple(self.query_examples[j])
                     batch_input_texts += input_text_list
                 
-                batch_neighbors = retriever.search(batch_input_texts)
+                batch_neighbors = retriever.retrieve(batch_input_texts)
                 for j in range(r - l):
                     embs = []
                     texts = []

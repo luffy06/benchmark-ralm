@@ -250,7 +250,7 @@ class RetrieverArguments:
         metadata={"help": "The path of encoder"}
     )
     retriever_device: int = field(
-        default=0,
+        default=-1,
     )
     retriever_path: str = field(
         default=None, 
@@ -301,12 +301,12 @@ class RetrieverArguments:
     search_candidates: List[str] = field(
         default=None,
     )
+    retrieve_texts: bool = field(
+        default=False,
+    )
 
     # Arguments for cross-attn
 
-    # retrieve_texts: bool = field(
-    #     default=False,
-    # )
     # query_dim: int = field(
     #     default=0,
     #     metadata={"help": "The dimension of feature for query"}
