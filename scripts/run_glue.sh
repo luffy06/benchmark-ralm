@@ -9,14 +9,14 @@
 # MODEL: pre-trained model name (roberta-*, bert-*), see Transformers model list
 
 PROJECT_DIR=$(dirname "$(dirname "$(realpath "$0")")")
-DEVICE=0,2
+DEVICE=0,1
 PORT=7777
 TYPE=prompt
-TASK_LIST=('SST-2') # 'sst-5' 'mr' 'cr' 'mpqa' 'subj' 'trec' 'CoLA' 'MNLI' 'SNLI' 'QNLI' 'RTE' 'MRPC' 'QQP')
+TASK_LIST=('SST-2' 'sst-5' 'mr' 'cr' 'mpqa' 'subj' 'trec' 'CoLA' 'MNLI' 'SNLI' 'QNLI' 'RTE' 'MRPC' 'QQP' 'WNLI')
 BS=32
 LR=1e-5
 ARCH_LR=5e-5
-SEED_LIST=(13) # 21 42 87 100)
+SEED_LIST=(13 21 42 87 100)
 MODEL=/root/autodl-tmp/wsy/models/roberta-large
 IFS='/' read -ra ADDR <<< "$MODEL"
 MODEL_NAME=${ADDR[-1]}
@@ -25,7 +25,7 @@ MODEL_NAME=${ADDR[-1]}
 K=16
 
 # Training steps
-MAX_STEP=20
+MAX_STEP=200
 
 # Validation steps
 EVAL_STEP=20

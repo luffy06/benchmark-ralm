@@ -12,11 +12,11 @@ PROJECT_DIR=$(dirname "$(dirname "$(realpath "$0")")")
 DEVICE=0,1
 PORT=7777
 TYPE=prompt
-TASK_LIST=('SST-2') # 'sst-5' 'mr' 'cr' 'mpqa' 'subj' 'trec' 'CoLA' 'MNLI' 'SNLI' 'QNLI' 'RTE' 'MRPC' 'QQP')
+TASK_LIST=('SST-2' 'sst-5' 'mr' 'cr' 'mpqa' 'subj' 'trec' 'CoLA' 'MNLI' 'SNLI' 'QNLI' 'RTE' 'MRPC' 'QQP')
 BS=32
 LR=1e-5
 LR_BILEVEL=5e-5
-SEED_LIST=(13) # 21 42 87 100)
+SEED_LIST=(13 21 42 87 100)
 MODEL=/root/autodl-tmp/wsy/models/roberta-large
 IFS='/' read -ra ADDR <<< "$MODEL"
 MODEL_NAME=${ADDR[-1]}
@@ -32,7 +32,7 @@ TOPK=64
 K=16
 
 # Training steps
-MAX_STEP=20
+MAX_STEP=200
 
 # Validation steps
 EVAL_STEP=20
@@ -136,9 +136,9 @@ do
             mkdir -p $LOG_DIR
         fi
 
-        LOCAL_RANK=0 CUDA_VISIBLE_DEVICES=$DEVICE \
+        LOCAL_RANK=0,1 CUDA_VISIBLE_DEVICES=$DEVICE \
             python -m torch.distributed.launch \
-                --nproc_per_node=1 \
+                --nproc_per_node=2 \
                 --use-env \
                 --master_port $PORT $PROJECT_DIR/src/run_glue.py \
                 --task_name $TASK \

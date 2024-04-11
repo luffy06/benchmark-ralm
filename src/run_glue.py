@@ -261,7 +261,7 @@ def main():
         logger.info("  Batch size = %d", training_args.eval_batch_size)
         logger.info("  Num steps = %d", len(test_dataset))
         results = trainer.evaluate(eval_dataset=test_dataset)
-        logger.info("result %.2f" % results['eval_acc'])
+        logger.info("result %.4f" % results['eval_acc'])
 
         if data_args.task_name == "mnli":
             mnli_mm_data_args = dataclasses.replace(data_args, task_name="mnli-mm")
@@ -273,7 +273,7 @@ def main():
                 retriever=retriever, 
             )
             results = trainer.evaluate(eval_dataset=test_dataset)
-            logger.info("result %.2f" % results['eval_acc'])
+            logger.info("result %.4f" % results['eval_acc'])
 
 
 if __name__ == "__main__":
