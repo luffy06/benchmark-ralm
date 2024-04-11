@@ -607,7 +607,7 @@ class XnliProcessor(DataProcessor):
 
 
 def text_classification_metrics(task_name, preds, labels):
-    return simple_accuracy(preds, labels)
+    return {"acc": simple_accuracy(preds, labels)}
 
 def squad_metrics(task_name, preds, labels):
     raise NotImplementedError("SQuAD metrics are not implemented yet.")
