@@ -1,0 +1,6 @@
+[submodule "lib/retriever-lib"]
+	path = lib/retriever-lib
+	url = https://github.com/luffy06/retriever-lib
+[submodule "lib/transformers"]
+	path = lib/transformers
+	url = git@github.com:huggingface/transformers
