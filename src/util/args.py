@@ -226,11 +226,11 @@ class DynamicTrainingArguments(TrainingArguments):
 class RetrieverArguments:
     retriever_type: str = field(
         default=None,
-        choices=[None, "dense", "sparse"],
+        metadata={"help": "The choices include dense, sparse"},
     )
     fusion_mode: str = field(
-        default="concat",
-        choices=["concat", "refusion", "cross-attn"],
+        default=None,
+        metadata={"help": "The choices include concat, refusion, cross-attn"},
     )
     encoder_path: str = field(
         default=None, 
@@ -283,8 +283,7 @@ class RetrieverArguments:
     )
     fusion_strategy: str = field(
         default=None, 
-        metadata={"help": "The fusion strategy to fuse the retrievals"}
-        choices=["rerank", "ordered-mask", "search"]
+        metadata={"help": "The fusion strategy to fuse the retrievals. The choices include rerank, ordered-mask, search"},
     )
     search_candidates: List[str] = field(
         default=None,

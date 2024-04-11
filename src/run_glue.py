@@ -30,10 +30,9 @@ from data.processors import (
     output_modes_mapping, 
     compute_metrics_mapping
 )
-from util.args import models_mapping
-from util.trainer import Trainer
-from retriever_interface import AutoRetriever
 from models.roberta_prompt import RobertaForPromptFinetuning
+from retriever_interface.base_retriever import AutoRetriever
+from util.trainer import Trainer
 
 logger = logging.getLogger(__name__)
 
@@ -118,11 +117,6 @@ def main():
         model_args, data_args, training_args, retriever_args = parser.parse_json_file(json_file=os.path.abspath(sys.argv[1]))
     else:
         model_args, data_args, training_args, retriever_args = parser.parse_args_into_dataclasses()
-
-    if training_args.no_train:
-        training_args.do_train = False
-    if training_args.no_predict:
-        training_args.do_predict = False
 
     # Setup logging
     logging.basicConfig(
@@ -265,30 +259,21 @@ def main():
 
     # Training
     if training_args.do_train:
+        logger.info("  " + "***** Training *****")
         if retriever_args.retriever_type != None:
             train_result = trainer.bilevel_train()
         else:
             train_result = trainer.train()
         metrics = train_result.metrics
-
-        max_train_samples = (
-            data_args.max_train_samples if data_args.max_train_samples is not None else len(train_dataset)
-        )
-        metrics["train_samples"] = min(max_train_samples, len(train_dataset))
-
-        trainer.save_model()  # Saves the tokenizer too for easy upload
-
         trainer.log_metrics("train", metrics)
-        trainer.save_metrics("train", metrics)
-        trainer.save_state()
 
     # Evaluation
     if training_args.do_predict:
         logger.info("  " + "***** Testing *****")
         logger.info("  Batch size = %d", training_args.eval_batch_size)
-        model = model.module if hasattr(model, 'module') else model
+        logger.info("  Num steps = %d", len(test_dataset))
         results = trainer.evaluate(eval_dataset=test_dataset)
-        logger.info(f"result {results}")
+        logger.info("result %.2f" % results['eval_acc'])
 
         if data_args.task_name == "mnli":
             mnli_mm_data_args = dataclasses.replace(data_args, task_name="mnli-mm")
@@ -300,7 +285,7 @@ def main():
                 retriever=retriever, 
             )
             results = trainer.evaluate(eval_dataset=test_dataset)
-            logger.info(f"result {results}")
+            logger.info("result %.2f" % results['eval_acc'])
 
 
 if __name__ == "__main__":

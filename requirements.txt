@@ -1,3 +1,4 @@
+accelerate==0.29.2
 evaluate==0.4.1
 faiss-gpu==1.7.2
 lmdb==1.4.1

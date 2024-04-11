@@ -2,6 +2,7 @@
 # File inherited from Huggingface Transformers library.
 import os
 import logging
+import pandas as pd
 from transformers import DataProcessor, InputExample
 from transformers.data.processors.squad import SquadV1Processor, SquadV2Processor
 from transformers.data.metrics import glue_compute_metrics, simple_accuracy, xnli_compute_metrics
@@ -51,7 +52,7 @@ class MrpcProcessor(DataProcessor):
             guid = f"{set_type}-{i}"
             text_a = line[3]
             text_b = line[4]
-            label = None if set_type == "test" else line[0]
+            label = line[0]
             examples.append(InputExample(guid=guid, text_a=text_a, text_b=text_b, label=label))
         return examples
 
@@ -96,7 +97,7 @@ class MnliProcessor(DataProcessor):
             guid = f"{set_type}-{line[0]}"
             text_a = line[8]
             text_b = line[9]
-            label = None if set_type.startswith("test") else line[-1]
+            label = line[-1]
             examples.append(InputExample(guid=guid, text_a=text_a, text_b=text_b, label=label))
         return examples
 
@@ -149,15 +150,12 @@ class ColaProcessor(DataProcessor):
 
     def _create_examples(self, lines, set_type):
         """Creates examples for the training, dev and test sets."""
-        test_mode = set_type == "test"
-        if test_mode:
-            lines = lines[1:]
-        text_index = 1 if test_mode else 3
+        text_index = 3
         examples = []
         for i, line in enumerate(lines):
             guid = f"{set_type}-{i}"
             text_a = line[text_index]
-            label = None if test_mode else line[1]
+            label = line[1]
             examples.append(InputExample(guid=guid, text_a=text_a, text_b=None, label=label))
         return examples
 
@@ -196,13 +194,13 @@ class Sst2Processor(DataProcessor):
     def _create_examples(self, lines, set_type):
         """Creates examples for the training, dev and test sets."""
         examples = []
-        text_index = 1 if set_type == "test" else 0
+        text_index = 0
         for i, line in enumerate(lines):
             if i == 0:
                 continue
             guid = f"{set_type}-{i}"
             text_a = line[text_index]
-            label = None if set_type == "test" else line[1]
+            label = line[1]
             examples.append(InputExample(guid=guid, text_a=text_a, text_b=None, label=label))
         return examples
 
@@ -247,7 +245,7 @@ class StsbProcessor(DataProcessor):
             guid = f"{set_type}-{line[0]}"
             text_a = line[7]
             text_b = line[8]
-            label = None if set_type == "test" else line[-1]
+            label = line[-1]
             examples.append(InputExample(guid=guid, text_a=text_a, text_b=text_b, label=label))
         return examples
 
@@ -285,9 +283,8 @@ class QqpProcessor(DataProcessor):
 
     def _create_examples(self, lines, set_type):
         """Creates examples for the training, dev and test sets."""
-        test_mode = set_type == "test"
-        q1_index = 1 if test_mode else 3
-        q2_index = 2 if test_mode else 4
+        q1_index = 3
+        q2_index = 4
         examples = []
         for i, line in enumerate(lines):
             if i == 0:
@@ -296,7 +293,7 @@ class QqpProcessor(DataProcessor):
             try:
                 text_a = line[q1_index]
                 text_b = line[q2_index]
-                label = None if test_mode else line[5]
+                label = line[5]
             except IndexError:
                 continue
             examples.append(InputExample(guid=guid, text_a=text_a, text_b=text_b, label=label))
@@ -343,7 +340,7 @@ class QnliProcessor(DataProcessor):
             guid = f"{set_type}-{line[0]}"
             text_a = line[1]
             text_b = line[2]
-            label = None if set_type == "test" else line[-1]
+            label = line[-1]
             examples.append(InputExample(guid=guid, text_a=text_a, text_b=text_b, label=label))
         return examples
 
@@ -388,7 +385,7 @@ class RteProcessor(DataProcessor):
             guid = f"{set_type}-{line[0]}"
             text_a = line[1]
             text_b = line[2]
-            label = None if set_type == "test" else line[-1]
+            label = line[-1]
             examples.append(InputExample(guid=guid, text_a=text_a, text_b=text_b, label=label))
         return examples
 
@@ -433,7 +430,7 @@ class WnliProcessor(DataProcessor):
             guid = f"{set_type}-{line[0]}"
             text_a = line[1]
             text_b = line[2]
-            label = None if set_type == "test" else line[-1]
+            label = line[-1]
             examples.append(InputExample(guid=guid, text_a=text_a, text_b=text_b, label=label))
         return examples
 
