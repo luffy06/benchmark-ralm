@@ -1,14 +1,12 @@
+import sys
 import random
-import evaluate
 import logging
 import dataclasses
 import torch
 import transformers
 import os
-import math
 import numpy as np
 
-from tqdm import tqdm
 from util.args import (
     ModelArguments, 
     DynamicDataTrainingArguments, 
@@ -17,12 +15,9 @@ from util.args import (
 )
 from transformers import HfArgumentParser
 
-import sys
 from tqdm import tqdm
-from torch.utils.data import DataLoader, RandomSampler
-from torch.utils.data.distributed import DistributedSampler
 from transformers import AutoConfig, AutoTokenizer, EvalPrediction
-from typing import Callable, Dict, Optional, List, Union, Any, Mapping, Tuple
+from typing import Callable, Dict, List, Any, Mapping
 
 from data.dataset import GLUEDataset
 from data.processors import (
@@ -33,6 +28,7 @@ from data.processors import (
 from models.roberta_prompt import RobertaForPromptFinetuning
 from retriever_interface.base_retriever import AutoRetriever
 from util.trainer import Trainer
+from transformers.trainer_utils import set_seed
 
 logger = logging.getLogger(__name__)
 
@@ -98,16 +94,6 @@ def setup_parallel():
     logger.info(f"Rank = {rank} is initialized in {master_addr}:{master_port}; local_rank = {local_rank}")
     torch.cuda.set_device(rank)
     return local_rank
-
-
-def set_seed(seed):
-    transformers.set_seed(seed)
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-
 
 def main():
     # Process command line arguments

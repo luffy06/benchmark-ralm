@@ -9,7 +9,7 @@
 # MODEL: pre-trained model name (roberta-*, bert-*), see Transformers model list
 
 PROJECT_DIR=$(dirname "$(dirname "$(realpath "$0")")")
-DEVICE=0,1
+DEVICE=0,2
 PORT=7777
 TYPE=prompt
 TASK_LIST=('SST-2') # 'sst-5' 'mr' 'cr' 'mpqa' 'subj' 'trec' 'CoLA' 'MNLI' 'SNLI' 'QNLI' 'RTE' 'MRPC' 'QQP')
@@ -149,7 +149,6 @@ do
                 --per_device_eval_batch_size 16 \
                 --gradient_accumulation_steps $GS \
                 --learning_rate $LR \
-                --arch_learning_rate $ARCH_LR \
                 --max_steps $MAX_STEP \
                 --logging_steps $EVAL_STEP \
                 --eval_steps $EVAL_STEP \

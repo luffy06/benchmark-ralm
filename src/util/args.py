@@ -184,39 +184,52 @@ class DynamicTrainingArguments(TrainingArguments):
         metadata={"help": "No test"}
     )
 
-    # Arguments for neural architecture search
-    arch_learning_rate: float = field(
+    # Arguments for bilevel optimization
+    learning_rate_bilevel: float = field(
         default=5e-5, 
         metadata={"help": "The initial learning rate for AdamW."}
     )
-    arch_weight_decay: float = field(
+    weight_decay_bilevel: float = field(
         default=0.0, 
         metadata={"help": "Weight decay for AdamW if we apply some."}
     )
-    arch_adam_beta1: float = field(
+    adam_beta1_bilevel: float = field(
         default=0.9, 
         metadata={"help": "Beta1 for AdamW optimizer"}
     )
-    arch_adam_beta2: float = field(
+    adam_beta2_bilevel: float = field(
         default=0.999, 
         metadata={"help": "Beta2 for AdamW optimizer"}
     )
-    arch_adam_epsilon: float = field(
+    adam_epsilon_bilevel: float = field(
         default=1e-8, 
         metadata={"help": "Epsilon for AdamW optimizer."}
     )
-    arch_max_grad_norm: float = field(
+    max_grad_norm_bilevel: float = field(
         default=1.0, 
         metadata={"help": "Max gradient norm."}
     )
-    arch_lr_scheduler_type: Union[SchedulerType, str] = field(
+    lr_scheduler_type_bilevel: Union[SchedulerType, str] = field(
         default="linear",
         metadata={"help": "The scheduler type to use."},
     )
-    arch_warmup_steps: int = field(
+    lr_scheduler_kwargs_bilevel: Optional[Dict] = field(
+        default_factory=dict,
+        metadata={
+            "help": (
+                "Extra parameters for the lr_scheduler such as {'num_cycles': 1} for the cosine with hard restarts"
+            )
+        },
+    )
+    warmup_steps_bilevel: int = field(
         default=0, 
         metadata={"help": "Linear warmup over warmup_steps."}
     )
+    warmup_ratio_bilevel: float = field(
+        default=0.0, 
+        metadata={"help": "Linear warmup over warmup_ratio fraction of total steps."}
+    )
+    # For generation length
     max_target_length: int = field(
         default=None,
     )
