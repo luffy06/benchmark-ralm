@@ -1,0 +1,7 @@
+evaluate==0.4.1
+faiss-gpu==1.7.2
+lmdb==1.4.1
+pip-chill==1.0.3
+pyserini==0.22.1
+sentence-transformers==2.2.2
+wget==3.2
