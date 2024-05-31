@@ -5,6 +5,8 @@ import json
 import dataclasses
 import numpy as np
 import pandas as pd
+import torch.utils
+import torch.utils.data
 from data.processors import processors_mapping
 from transformers.data.processors.utils import InputFeatures
 from dataclasses import dataclass
@@ -13,6 +15,47 @@ from copy import deepcopy
 from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
+
+def data_collator_with_retrievals(features: List[Any]) -> Dict[str, Any]:
+    if not isinstance(features[0], Mapping):
+        features = [vars(f) for f in features]
+    first = features[0]
+    batch = {}
+
+    # Special handling for labels.
+    # Ensure that tensor is created with the correct type
+    # (it should be automatically the case, but let's make sure of it.)
+    if "label" in first and first["label"] is not None:
+        label = first["label"].item() if isinstance(first["label"], torch.Tensor) else first["label"]
+        dtype = torch.long if isinstance(label, int) else torch.float
+        batch["labels"] = torch.tensor([f["label"] for f in features], dtype=dtype)
+    elif "label_ids" in first and first["label_ids"] is not None:
+        if isinstance(first["label_ids"], torch.Tensor):
+            batch["labels"] = torch.stack([f["label_ids"] for f in features])
+        else:
+            dtype = torch.long if type(first["label_ids"][0]) is int else torch.float
+            batch["labels"] = torch.tensor([f["label_ids"] for f in features], dtype=dtype)
+    if "input_texts" in first and first["input_texts"] is not None:
+        batch["input_texts"] = [f["input_texts"] for f in features]
+    if "neighbors" in first and first["neighbors"] is not None:
+        batch["neighbors"] = torch.tensor(np.stack([f["neighbors"] for f in features]))
+    if "neighbor_texts" in first and first["neighbor_texts"] is not None:
+        batch["neighbor_texts"] = []
+        for f in features:
+            for text in f["neighbor_texts"]:
+                batch['neighbor_texts'].append(text)
+    
+    # Handling of all other possible keys.
+    # Again, we will use the first element to figure out which key/values are not None for this model.
+    for k, v in first.items():
+        if k not in ("label", "label_ids", "input_texts", "neighbors", "neighbor_texts") and v is not None and not isinstance(v, str):
+            if isinstance(v, torch.Tensor):
+                batch[k] = torch.stack([f[k] for f in features])
+            elif isinstance(v, np.ndarray):
+                batch[k] = torch.tensor(np.stack([f[k] for f in features]))
+            else:
+                batch[k] = torch.tensor([f[k] for f in features])
+    return batch
 
 @dataclass(frozen=True)
 class GLUEInputFeatures(InputFeatures):
@@ -66,8 +109,8 @@ def tokenize_input(
     return_texts=False,
     transformer_type='encoder-only',
 ):
-    def enc(text):
-        return tokenizer.encode(text, add_special_tokens=False)
+    def enc(text, add_special_tokens=False):
+        return tokenizer.encode(text, add_special_tokens=add_special_tokens)
 
     def dec(ids):
         return tokenizer.decode(ids, special_token_mapping=True)
@@ -240,6 +283,18 @@ def tokenize_input(
             attention_mask = attention_mask[:max_length]
             token_type_ids = token_type_ids[:max_length]
 
+    # Preprocess inputs and labels for different types of models
+    if transformer_type == 'encoder-decoder':
+        label_ids += [tokenizer.eos_token_id]
+        label_mask += [0]
+    elif transformer_type == 'decoder-only':
+        input_len = len(input_ids)
+        label_len = len(label_ids)
+        input_ids += label_ids + [tokenizer.eos_token_id]
+        attention_mask += [0 for i in range(label_len)] + [0]
+        label_ids = [-100 for i in range(input_len)] + label_ids + [tokenizer.eos_token_id]
+        label_mask = [0 for i in range(input_len)] + [1 for i in range(label_len)] + [0]
+
     # Find mask token
     if prompt and transformer_type == 'encoder-only':
         mask_pos = [input_ids.index(tokenizer.mask_token_id)]
@@ -247,6 +302,11 @@ def tokenize_input(
         assert mask_pos[0] < max_length
 
     result = {'input_ids': input_ids, 'attention_mask': attention_mask}
+    if transformer_type == 'encoder-decoder':
+        result['decoder_attention_mask'] = label_mask
+    elif transformer_type == 'decoder-only':
+        result['labels'] = label_ids
+    
     if 'BERT' in type(tokenizer).__name__:
         # Only provide token type ids for BERT
         result['token_type_ids'] = token_type_ids
@@ -278,6 +338,153 @@ class GLUEDataset(torch.utils.data.Dataset):
 
         assert mode in ["train", "dev", "test"]
 
+        logger.info(f"Creating/loading examples from dataset file at {args.data_dir}")
+
+        if mode == "dev":
+            self.query_examples = self.processor.get_dev_examples(args.data_dir)
+        elif mode == "test":
+            self.query_examples = self.processor.get_test_examples(args.data_dir)
+        else:
+            self.query_examples = self.processor.get_train_examples(args.data_dir)
+
+        self.size = len(self.query_examples)
+        all_neighbor_embs = []
+        all_neighbor_texts = []
+        if retriever != None:
+            step = 2 if self.query_examples[0].text_b != None else 1
+            batch_size = 32
+            num_batches = int(np.ceil(len(self.query_examples) / batch_size))
+            for i in tqdm(range(num_batches)):
+                l = i * batch_size
+                r = np.min(((i + 1) * batch_size, len(self.query_examples)))
+                batch_input_texts = []
+                for j in range(l, r):
+                    input_text_list = input_example_to_tuple(self.query_examples[j])
+                    batch_input_texts += input_text_list
+                
+                batch_neighbors = retriever.retrieve(batch_input_texts)
+                for j in range(r - l):
+                    embs = []
+                    texts = []
+                    for k in range(step):
+                        embs.append(batch_neighbors[j*step+k]['emb'])
+                        texts = texts + batch_neighbors[j*step+k]['text']
+                    embs = np.concatenate(embs, axis=1)
+                    all_neighbor_embs.append(embs)
+                    all_neighbor_texts.append(texts)
+                    del embs, texts
+            all_neighbor_embs = np.concatenate(all_neighbor_embs, axis=0)
+
+        self.features = []
+        for i, example in enumerate(self.query_examples):
+            self.features.append(self.convert_fn(
+                example=example,
+                prompt=args.prompt,
+                template=args.template,
+                verbose=True if i == 0 else False,
+                neighbor_embs=all_neighbor_embs[i] if len(all_neighbor_embs) else None,
+                neighbor_texts=all_neighbor_texts[i] if len(all_neighbor_embs) else None,
+            ))
+        del all_neighbor_embs, all_neighbor_texts
+
+    def __len__(self):
+        return self.size
+
+    def __getitem__(self, i):
+        return self.features[i]
+
+    def get_labels(self):
+        return self.label_list
+
+    def convert_fn(
+        self,
+        example,
+        prompt=False,
+        template=None,
+        verbose=False,
+        neighbor_embs=None,
+        neighbor_texts=None,
+    ):
+        """
+        Returns a list of processed "InputFeatures".
+        """
+        max_length = self.args.max_seq_length    
+
+        # Prepare labels
+        label_map = {label: i for i, label in enumerate(self.label_list)} # Mapping the label names to label ids
+        if len(self.label_list) == 1:
+            # Regression
+            label_map = {'0': 0, '1': 1}
+
+        # Get example's label id (for training/inference)
+        label_word_id = None
+        if example.label is None:
+            example_label = None
+        elif len(self.label_list) == 1:
+            # Regerssion
+            example_label = float(example.label)
+        else:
+            example_label = label_map[example.label]
+            label_word_id = None if example_label == None else self.label_word_list[example_label]
+
+        input_text_list = input_example_to_tuple(example)
+        inputs = tokenize_input(
+            input_text_list=input_text_list,
+            label_id=label_word_id,
+            max_length=max_length,
+            tokenizer=self.tokenizer,
+            prompt=prompt,
+            template=template,
+            first_sent_limit=self.args.first_sent_limit,
+            other_sent_limit=self.args.other_sent_limit,
+            truncate_head=self.args.truncate_head,
+            retrieval_texts=neighbor_texts,
+            return_texts=self.args.return_texts,
+            transformer_type=self.transformer_type,
+        )
+        features = GLUEInputFeatures(
+            **inputs, 
+            label=example_label, 
+            neighbors=neighbor_embs,
+            neighbor_texts=neighbor_texts,
+        )
+        if verbose:
+            logger.info("*** Example ***")
+            logger.info("guid: %s" % (example.guid))
+            logger.info("input ids: %s" % features.input_ids)
+            logger.info("attention mask: %s" % features.attention_mask)
+            logger.info("label: %s" % example.label)
+            logger.info("input texts: \n%s" % self.tokenizer.decode(features.input_ids))
+            if neighbor_texts != None:
+                logger.info("neighbors of 1st sentence: \n%s" % '\n'.join([f'Top-{i+1}: {text}'for i, text in enumerate(neighbor_texts[:len(neighbor_texts)//2])]))
+                if len(neighbor_texts) > 1:
+                    logger.info("neighbors of 2nd sentence: \n%s" % '\n'.join([f'Top-{i+1}: {text}'for i, text in enumerate(neighbor_texts[len(neighbor_texts)//2:])]))
+            else:
+                logger.info("No neighbors")
+
+        return features
+
+class PPLDataset(torch.utils.data.Dataset):
+    """PPL dataset."""
+
+    """GLUE dataset."""
+
+    def __init__(self, 
+        args, 
+        tokenizer, 
+        mode="train", 
+        transformer_type="encoder-only",
+        retriever=None,
+    ):
+        self.args = args
+        self.task_name = args.task_name
+        self.processor = processors_mapping[args.task_name]
+        self.tokenizer = tokenizer
+        self.mode = mode
+        self.transformer_type = transformer_type
+
+        assert mode in ["train", "dev", "test"]
+
         # Get label list and (for prompt) label word list
         self.label_list = self.processor.get_labels()
         self.num_labels = len(self.label_list)
@@ -287,9 +494,7 @@ class GLUEDataset(torch.utils.data.Dataset):
 
         for key in self.label_to_word:
             # For RoBERTa/BART/T5, tokenization also considers space, so we use space+word as label words.
-            if self.label_to_word[key][0] not in ['<', '[', '.', ',']:
-                # Make sure space+word is in the vocabulary
-                assert len(tokenizer.tokenize(' ' + self.label_to_word[key])) == 1
+            if self.label_to_word[key][0] not in ['<', '[', '.', ','] and len(tokenizer.tokenize(' ' + self.label_to_word[key])) == 1:
                 self.label_to_word[key] = tokenizer._convert_token_to_id(tokenizer.tokenize(' ' + self.label_to_word[key])[0])
             else:
                 self.label_to_word[key] = tokenizer._convert_token_to_id(self.label_to_word[key])

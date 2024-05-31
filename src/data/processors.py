@@ -606,6 +606,10 @@ class XnliProcessor(DataProcessor):
         return ["contradiction", "entailment", "neutral"]
 
 
+class WikitextProcessor(DataProcessor):
+
+
+
 def text_classification_metrics(task_name, preds, labels):
     return {"acc": simple_accuracy(preds, labels)}
 

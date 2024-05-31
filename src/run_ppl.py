@@ -76,20 +76,12 @@ def main():
     logger.info("Data parameters %s", data_args)
     logger.info("Training/evaluation parameters %s", training_args)
 
-    # Get the GLUE task information
-    try:
-        num_labels = num_labels_mapping[data_args.task_name]
-        output_mode = output_modes_mapping[data_args.task_name]
-        logger.info("GLUE Task name: {}, number of labels: {}, output mode: {}".format(data_args.task_name, num_labels, output_mode))
-    except KeyError:
-        raise ValueError("GLUE Task not found: %s" % (data_args.task_name))
-
     # Load pretrained model and tokenizer
     config, tokenizer, model, retriever = load_model_and_retriever(model_args=model_args, data_args=data_args, retriever_args=retriever_args, num_labels=num_labels)
     model_args.transformer_type = transformer_type_mapping[config.model_type]
 
     # Load datasets
-    train_dataset = GLUEDataset(
+    train_dataset = PPLDataset(
         data_args, 
         tokenizer=tokenizer, 
         mode="train", 
@@ -97,7 +89,7 @@ def main():
         retriever=retriever, 
     )
     eval_dataset = (
-        GLUEDataset(
+        PPLDataset(
             data_args, 
             tokenizer=tokenizer, 
             mode="dev", 
@@ -108,7 +100,7 @@ def main():
         else None
     )
     test_dataset = (
-        GLUEDataset(
+        PPLDataset(
             data_args, 
             tokenizer=tokenizer, 
             mode="test", 

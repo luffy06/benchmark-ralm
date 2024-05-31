@@ -9,15 +9,16 @@
 # MODEL: pre-trained model name (roberta-*, bert-*), see Transformers model list
 
 PROJECT_DIR=$(dirname "$(dirname "$(realpath "$0")")")
-DEVICE=0,2
-PORT=7777
+DEVICE=0
+PORT=6666
 TYPE=prompt
-TASK_LIST=('SST-2' 'sst-5' 'mr' 'cr' 'mpqa' 'subj' 'trec' 'CoLA' 'MNLI' 'SNLI' 'QNLI' 'RTE' 'MRPC' 'QQP' 'WNLI')
-BS=32
+TASK_LIST=('SST-2') # 'sst-5' 'mr' 'cr' 'mpqa' 'subj' 'trec' 'CoLA' 'MNLI' 'SNLI' 'QNLI' 'RTE' 'MRPC' 'QQP' 'WNLI')
+BS=1
+EVAL_BS=1
 LR=1e-5
 ARCH_LR=5e-5
-SEED_LIST=(13 21 42 87 100)
-MODEL=/root/autodl-tmp/wsy/models/roberta-large
+SEED_LIST=(13) # 21 42 87 100)
+MODEL=/root/autodl-tmp/wsy/models/gemma-2b
 IFS='/' read -ra ADDR <<< "$MODEL"
 MODEL_NAME=${ADDR[-1]}
 
@@ -34,7 +35,7 @@ EVAL_STEP=20
 # For medium-sized GPUs (e.g., 2080ti with 10GB memory), they can only take 
 # a maximum batch size of 2 when using large-size models. So we use gradient
 # accumulation steps to achieve the same effect of larger batch sizes.
-REAL_BS=16
+REAL_BS=1
 GS=$(expr $BS / $REAL_BS)
 
 for SEED in ${SEED_LIST[*]}
@@ -48,76 +49,69 @@ do
         # All those parameters are set arbitrarily by observing the data distributions.
         TASK_EXTRA=""
         case $TASK in
-            CoLA)
-                TEMPLATE=*cls**sent_0*_This_is*mask*.*sep+*
-                MAPPING="{'0':'incorrect','1':'correct'}"
-                ;;
             SST-2)
-                TEMPLATE=*cls**sent_0*_It_was*mask*.*sep+*
-                MAPPING="{'0':'terrible','1':'great'}"
+                TEMPLATE=Does_the_following_sentence_have_a_positive_or_negative_sentiment_?_*sent_0*_The_answer_is
+                MAPPING="{'0':'negative','1':'positive'}"
                 ;;
-            MRPC)
-                TEMPLATE=*cls**sent_0**mask*,*+sentl_1**sep+*
-                MAPPING="{'0':'No','1':'Yes'}"
+            sst-5)
+                TEMPLATE=What_sentiment_does_this_sentence_have?_terrible,_bad,_okay,_good_or_great.*sent_0*_The_answer_is
+                MAPPING="{0:'terrible',1:'bad',2:'okay',3:'good',4:'great'}"
                 ;;
-            QQP)
-                TEMPLATE=*cls**sent_0**mask*,*+sentl_1**sep+*
-                MAPPING="{'0':'No','1':'Yes'}"
+            mr)
+                TEMPLATE=Does_the_following_sentence_have_a_positive_or_negative_sentiment_?_*sent_0*_The_answer_is
+                MAPPING="{0:'negative',1:'positive'}"
                 ;;
-            STS-B)
-                TEMPLATE=*cls**sent_0**mask*,*+sentl_1**sep+*
-                MAPPING="{'0':'No','1':'Yes'}"
+            cr)
+                TEMPLATE=Does_the_following_sentence_have_a_positive_or_negative_sentiment_?_*sent_0*_The_answer_is
+                MAPPING="{0:'negative',1:'positive'}"
+                ;;
+            mpqa)
+                TEMPLATE=Does_the_following_sentence_have_a_positive_or_negative_sentiment_?_*sent_0*_The_answer_is
+                MAPPING="{0:'negative',1:'positive'}"
+                ;;
+            subj)
+                TEMPLATE=Is_this_a_subjective_or_objective_description_?_*sent_0*_The_answer_is
+                MAPPING="{0:'subjective',1:'objective'}"
+                ;;
+            trec)
+                TEMPLATE=Which_category_best_describes_the_following_question:_*sent_0*_Choose_from_the_following_list:_description,_entity,_expression,_person,_location,_quantity._The_answer_is
+                MAPPING="{0:'description',1:'entity',2:'expression',3:'person',4:'location',5:'quantity'}"
+                ;;
+            CoLA)
+                TEMPLATE=The_following_sentence_is_either_"acceptable",_meaning_it_is_grammatically_correct_and_makes_sense,_or_"unacceptable"._Which_is_it?*sent_0*_The_answer_is
+                MAPPING="{'0':'unacceptable','1':'acceptable'}"
                 ;;
             MNLI)
-                TEMPLATE=*cls**sent-_0*?*mask*,*+sentl_1**sep+*
+                TEMPLATE=*sent-_0*_?_,*+sentl_1*
                 MAPPING="{'contradiction':'No','entailment':'Yes','neutral':'Maybe'}"
                 TASK_EXTRA="--max_seq_len 256"
                 ;;
             SNLI)
-                TEMPLATE=*cls**sent-_0*?*mask*,*+sentl_1**sep+*
+                TEMPLATE=*sent-_0*_?_,*+sentl_1*
                 MAPPING="{'contradiction':'No','entailment':'Yes','neutral':'Maybe'}"
                 TASK_EXTRA="--max_seq_len 256"
                 ;;
             QNLI)
-                TEMPLATE=*cls**sent-_0*?*mask*,*+sentl_1**sep+*
+                TEMPLATE=*sent-_0*_?_,*+sentl_1*
                 MAPPING="{'not_entailment':'No','entailment':'Yes'}"
                 ;;
             RTE)
-                TEMPLATE=*cls**sent-_0*?*mask*,*+sentl_1**sep+*
+                TEMPLATE=*sent-_0*_?_,*+sentl_1*
                 MAPPING="{'not_entailment':'No','entailment':'Yes'}"
                 TASK_EXTRA="--max_seq_len 256 --first_sent_limit 240"
                 ;;
-            mr)
-                TEMPLATE=*cls**sent_0*_It_was*mask*.*sep+*
-                MAPPING="{0:'terrible',1:'great'}"
-                TASK_EXTRA="--first_sent_limit 110 --other_sent_limit 50"
+            MRPC)
+                TEMPLATE=*sent_0*_?_,*+sentl_1*
+                MAPPING="{'0':'No','1':'Yes'}"
                 ;;
-            sst-5)
-                TEMPLATE=*cls**sent_0*_It_was*mask*.*sep+*
-                MAPPING="{0:'terrible',1:'bad',2:'okay',3:'good',4:'great'}"
-                TASK_EXTRA="--first_sent_limit 110 --other_sent_limit 20"
+            QQP)
+                TEMPLATE=*sent_0*_?_,*+sentl_1*
+                MAPPING="{'0':'No','1':'Yes'}"
                 ;;
-            subj)
-                TEMPLATE=*cls**sent_0*_This_is*mask*.*sep+*
-                MAPPING="{0:'subjective',1:'objective'}"
-                TASK_EXTRA="--first_sent_limit 110 --other_sent_limit 50"
+            STS-B)
+                TEMPLATE=*sent_0*_?_,*+sentl_1*
+                MAPPING="{'0':'No','1':'Yes'}"
                 ;;
-            trec)
-                TEMPLATE="*cls**mask*:*+sent_0**sep+*"
-                MAPPING="{0:'Description',1:'Entity',2:'Expression',3:'Human',4:'Location',5:'Number'}"
-                TASK_EXTRA="--first_sent_limit 110"
-                ;;
-            cr)
-                TEMPLATE=*cls**sent_0*_It_was*mask*.*sep+*
-                MAPPING="{0:'terrible',1:'great'}"
-                TASK_EXTRA="--first_sent_limit 110 --other_sent_limit 50"
-                ;;
-            mpqa)
-                TEMPLATE=*cls**sent_0*_It_was*mask*.*sep+*
-                MAPPING="{0:'terrible',1:'great'}"
-                TASK_EXTRA="--first_sent_limit 110 "
-                ;;
-
         esac
 
         # Use a random number to distinguish different trails (avoid accidental overwriting)
@@ -131,7 +125,7 @@ do
 
         CUDA_VISIBLE_DEVICES=$DEVICE \
             python -m torch.distributed.launch \
-                --nproc_per_node=2 \
+                --nproc_per_node=1 \
                 --use-env \
                 --master_port $PORT $PROJECT_DIR/src/run_glue.py \
                 --task_name $TASK \
@@ -146,7 +140,7 @@ do
                 --num_k $K \
                 --max_seq_length 128 \
                 --per_device_train_batch_size $REAL_BS \
-                --per_device_eval_batch_size 16 \
+                --per_device_eval_batch_size $EVAL_BS \
                 --gradient_accumulation_steps $GS \
                 --learning_rate $LR \
                 --max_steps $MAX_STEP \
@@ -156,6 +150,7 @@ do
                 --seed $SEED \
                 --template $TEMPLATE \
                 --mapping $MAPPING \
+                --fp16 \
                 $TASK_EXTRA \
                 > $LOG_DIR/$TYPE-$K-$SEED-$MODEL_NAME.log 2>&1
         rm -rf $PROJECT_DIR/checkpoints/$TASK-$TYPE-$K-$SEED-$MODEL_NAME-$TRIAL_IDTF
